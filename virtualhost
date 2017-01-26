@@ -6,27 +6,30 @@ TEXTDOMAIN=virtualhost
 action=$1
 domain=$2
 rootDir=$3
-owner=$(who am i | awk '{print $1}')
+owner=$(who | awk '{print $1}')
 sitesEnable='/etc/nginx/sites-enabled/'
 sitesAvailable='/etc/nginx/sites-available/'
-userDir='/var/www/'
+userDir='/usr/share/nginx/html/'
 
 if [ "$(whoami)" != 'root' ]; then
 	echo $"You have no permission to run $0 as non-root user. Use sudo"
 		exit 1;
 fi
 
-if [ "$action" != 'create' ] && [ "$action" != 'delete' ]
+if [ "$action" != 'create' ] && [ "$action" != 'delete' ] && [ "$action" != 'start' ] && [ "$action" != 'stop' ]
 	then
-		echo $"You need to prompt for action (create or delete) -- Lower-case only"
+		echo $"You need to prompt for action (create, delete, start or stop) -- Lower-case only"
 		exit 1;
 fi
 
-while [ "$domain" == "" ]
-do
-	echo -e $"Please provide domain. e.g.dev,staging"
-	read domain
-done
+if [ "$action" != 'stop' ] && [ "$action" != 'start' ]
+	then
+		while [ "$domain" == "" ]
+		do
+			echo -e $"Please provide domain. e.g.dev,staging"
+			read domain
+		done
+fi
 
 if [ "$rootDir" == "" ]; then
 	rootDir=${domain//./}
@@ -36,8 +39,6 @@ fi
 if [[ "$rootDir" =~ ^/ ]]; then
 	userDir=''
 fi
-
-rootDir=$userDir$rootDir
 
 if [ "$action" == 'create' ]
 	then
@@ -52,9 +53,9 @@ if [ "$action" == 'create' ]
 			### create the directory
 			mkdir $userDir$rootDir
 			### give permission to root dir
-			chmod 755 $userDir$rootDir
+			sudo chmod -R 755 $userDir$rootDir
 			### write test file in the new domain dir
-			if ! echo "<?php echo phpinfo(); ?>" > $userDir$rootDir/phpinfo.php
+			if ! echo "<?php echo phpinfo(); ?>" > $userDir$rootDir/index.php
 				then
 					echo $"ERROR: Not able to write in file $userDir/$rootDir/phpinfo.php. Please check permissions."
 					exit;
@@ -65,47 +66,48 @@ if [ "$action" == 'create' ]
 
 		### create virtual host rules file
 		if ! echo "server {
-			listen   80;
-			root $userDir$rootDir;
-			index index.php index.html index.htm;
-			server_name $domain;
+		listen 80;
+		#listen [::]:80;
+		#listen 443 ssl;
+		#listen [::]:443 ssl;
 
-			# serve static files directly
-			location ~* \.(jpg|jpeg|gif|css|png|js|ico|html)$ {
-				access_log off;
-				expires max;
-			}
+		root $userDir$rootDir;
+		index index.php index.html index.htm;
+		server_name $domain www.$domain;
 
-			# removes trailing slashes (prevents SEO duplicate content issues)
-			if (!-d \$request_filename) {
-				rewrite ^/(.+)/\$ /\$1 permanent;
-			}
+		# serve static files directly
+		location ~* \.(jpg|jpeg|gif|css|png|js|ico|html)$ {
+			access_log off;
+			expires max;
+		}
 
-			# unless the request is for a valid file (image, js, css, etc.), send to bootstrap
-			if (!-e \$request_filename) {
-				rewrite ^/(.*)\$ /index.php?/\$1 last;
-				break;
-			}
+		# removes trailing slashes (prevents SEO duplicate content issues)
+		if (!-d \$request_filename) {
+			rewrite ^/(.+)/\$ /\$1 permanent;
+		}
 
-			# removes trailing 'index' from all controllers
-			if (\$request_uri ~* index/?\$) {
-				rewrite ^/(.*)/index/?\$ /\$1 permanent;
-			}
+		# unless the request is for a valid file (image, js, css, etc.), send to bootstrap
+		if (!-e \$request_filename) {
+			rewrite ^/(.*)\$ /index.php?/\$1 last;
+			break;
+		}
 
-			# catch all
-			error_page 404 /index.php;
+		# removes trailing 'index' from all controllers
+		if (\$request_uri ~* index/?\$) {
+			rewrite ^/(.*)/index/?\$ /\$1 permanent;
+		}
 
-			location ~ \.php$ {
-				fastcgi_split_path_info ^(.+\.php)(/.+)\$;
-				fastcgi_pass 127.0.0.1:9000;
-				fastcgi_index index.php;
-				include fastcgi_params;
-			}
+		# catch all
+		error_page 404 /index.php;
 
-			location ~ /\.ht {
-				deny all;
-			}
+		location ~ \.php {
+			include snippets/fastcgi-php.conf;
+			fastcgi_pass unix:/run/php/php7.0-fpm.sock;
+		}
 
+		location ~ /\.ht {
+			deny all;
+		}
 		}" > $sitesAvailable$domain
 		then
 			echo -e $"There is an ERROR create $domain file"
@@ -138,6 +140,19 @@ if [ "$action" == 'create' ]
 		### show the finished message
 		echo -e $"Complete! \nYou now have a new Virtual Host \nYour new host is: http://$domain \nAnd its located at $userDir$rootDir"
 		exit;
+
+	elif [ "$action" == 'stop' ]
+		then
+			systemctl stop redis.service
+			systemctl stop nginx.service
+			systemctl stop mysql.service
+			systemctl stop php7.0-fpm.service
+	elif [ "$action" == 'start' ]
+		then
+			systemctl start redis.service
+			systemctl start nginx.service
+			systemctl start mysql.service
+			systemctl start php7.0-fpm.service
 	else
 		### check whether domain already exists
 		if ! [ -e $sitesAvailable$domain ]; then
