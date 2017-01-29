@@ -55,7 +55,7 @@ if [ "$action" == 'create' ]
 			### give permission to root dir
 			sudo chmod -R 755 $userDir$rootDir
 			### write test file in the new domain dir
-			if ! echo "<?php echo phpinfo(); ?>" > $userDir$rootDir/index.php
+			if ! echo "<?php echo phpinfo(); ?>" > $userDir$rootDir/public/index.php
 				then
 					echo $"ERROR: Not able to write in file $userDir/$rootDir/phpinfo.php. Please check permissions."
 					exit;
@@ -71,7 +71,7 @@ if [ "$action" == 'create' ]
 		#listen 443 ssl;
 		#listen [::]:443 ssl;
 
-		root $userDir$rootDir;
+		root $userDir$rootDir/public;
 		index index.php index.html index.htm;
 		server_name $domain www.$domain;
 
