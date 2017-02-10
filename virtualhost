@@ -143,13 +143,13 @@ if [ "$action" == 'create' ]
 
 	elif [ "$action" == 'stop' ]
 		then
-			systemctl stop redis.service
+			systemctl stop redis-server.service
 			systemctl stop nginx.service
 			systemctl stop mysql.service
 			systemctl stop php7.0-fpm.service
 	elif [ "$action" == 'start' ]
 		then
-			systemctl start redis.service
+			systemctl start redis-server.service
 			systemctl start nginx.service
 			systemctl start mysql.service
 			systemctl start php7.0-fpm.service
