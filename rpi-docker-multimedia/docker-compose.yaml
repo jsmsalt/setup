@@ -1,0 +1,38 @@
+version: "2"
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    ports:
+      - 8096:8096
+    volumes:
+      - /media/hdd/cache/jellyfin:/cache
+      - /media/hdd/config/jellyfin:/config
+      - /media/hdd/data/source:/source
+    restart: always
+    network_mode: "host"
+
+  deluge:
+    image: jordancrawford/rpi-deluge
+    container_name: deluge
+    network_mode: host
+    ports:
+      - 58846:58846
+      - 8112:8112
+      - 51360:51360/udp
+    volumes:
+      - /media/hdd/config/deluge:/config
+      - /media/hdd/data/torrents:/data
+    restart: always
+
+  filebot:
+    image: jsmsalt/alpine-filebot-rpi:latest
+    container_name: filebot
+    volumes:
+      - /media/hdd/data/torrents/completed:/downloads
+      - /media/hdd/data/source:/media
+      - /home/pi/alpine/config:/config
+    restart: always
+
+

@@ -1,0 +1,1 @@
+@reboot     root    /boot/tasks.sh boot
